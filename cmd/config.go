@@ -12,9 +12,11 @@ import (
 // dojoConfig.yml - example config file, used as default for dev installs
 // setup-superuser.expect - expect script to set the default admin password
 // factory_2.0.3 - python file to work around a bug in Python 3.8 and DefectDojo 1.15.1
-//                 see: https://github.com/DefectDojo/godojo/blob/master/ubuntu.go#L436
+//
+//	see: https://github.com/DefectDojo/godojo/blob/master/ubuntu.go#L436
+//
 // Next line is an example of a patch for a pre-2.0.0 version of DefectDojo
-//var factory2 = "embd/factory_2.0.3"
+// var factory2 = "embd/factory_2.0.3"
 // gdj.tar.gz - experiment on embedding commands into godojo, not currently used
 var embdConfig = "embd/dojoConfig.yml"
 var suExpect = "embd/setup-superuser.expect"
@@ -136,17 +138,18 @@ type installConfig struct {
 
 // DBTarget - struct to hold Install.DB options
 type dBTarget struct {
-	Engine string
-	Local  bool
-	Exists bool
-	Ruser  string
-	Rpass  string
-	Name   string
-	User   string
-	Pass   string
-	Host   string
-	Port   int
-	Drop   bool
+	Engine     string
+	Local      bool
+	Exists     bool
+	DontModify bool
+	Ruser      string
+	Rpass      string
+	Name       string
+	User       string
+	Pass       string
+	Host       string
+	Port       int
+	Drop       bool
 }
 
 // OSTarget - struct to hold Install.OS options

@@ -36,7 +36,8 @@ Install:
   DB:
     Engine: "PostgreSQL" # DD_DB_Engine - Database engine to use (SQLite, MySQL, PostgreSQL, MariaDB) Note: CASE sEnSiTiVE!
     Local: true # DD_DB_Local - Boolean for when DB is on the same host/server/vm (local)
-    Exists: false # DD_DB_Exists - Boolean for when DB for DefectDojo already exists so no install needed
+    Exists: false # DD_DB_Exists - Boolean for when DB for DefectDojo already exists so creating the DB is not needed. If true, will still create user and run DB migrations.
+    DontModify: false # DD_DB_DontModify - Boolean for when DB for DefectDojo already exists and doesn't need any changes
     Ruser: "postgres" # DD_DB_Ruser - Superuser for the database, root for MySQL/MaraiDB & posgres for PostgreSQL. Note: this and Rpass below REQUIRED for remote and existing DBs
     Rpass: "vee0Thoanae1daePooz0ieka" # DD_DB_Rpass - Password for the database superuser TODO: Note: set to 24 random characters if left blank
     Name: "dojodb" # DD_DB_Name - Name of the database that DefectDojo will use

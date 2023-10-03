@@ -549,6 +549,11 @@ func createSettingsPy(d *DDConfig) {
 
 // setupDefectDojo
 func setupDefectDojo(d *DDConfig, t *targetOS) {
+	if d.conf.Install.DB.DontModify {
+		d.traceMsg("Install.DB.DontModify is set to true, skipping setting up Django for DefectDojo")
+		return
+	}
+
 	d.sectionMsg("Setting up Django for DefectDojo")
 
 	// Do some preliminary work to the install root

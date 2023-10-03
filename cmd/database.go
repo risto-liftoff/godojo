@@ -38,6 +38,11 @@ func saneDBConfig(d *DDConfig) {
 
 // prepDBForDojo
 func installDBForDojo(d *DDConfig, t *targetOS) {
+	if d.conf.Install.DB.DontModify {
+		d.traceMsg("Install.DB.DontModify is set to true, skipping DB installation")
+		return
+	}
+
 	// Handle the case that the DB is local and doesn't exist
 	if !d.conf.Install.DB.Exists {
 		// Note that godojo won't try to install remote databases
@@ -233,6 +238,10 @@ func prepDBForDojo(d *DDConfig, t *targetOS) {
 	// (3) Droping the existing database if Drop = true is configured (4) Create the DefectDojo database
 	// (5) Add the DB user for DefectDojo to use
 	// TODO: Validate this against @owasp - https://docs.google.com/spreadsheets/d/1HuXh3Zr4mrmb6_YmKkDgzl-ZINYZCvVZn31UCqIGpUA/edit#gid=0
+	if d.conf.Install.DB.DontModify {
+		d.traceMsg("Install.DB.DontModify is set to true, skipping DB preparation")
+		return
+	}
 	d.sectionMsg("Preparing the database needed for DefectDojo")
 	err := dbPrep(d, t)
 	if err != nil {
