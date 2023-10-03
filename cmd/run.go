@@ -49,6 +49,9 @@ func run(d *DDConfig) {
 	// Create settings.py
 	createSettings(d, &osTarget)
 
+	// Setup DefectDojo database
+	setupDefectDojoDB(d, &osTarget)
+
 	// Setup DefectDojo
 	setupDefectDojo(d, &osTarget)
 

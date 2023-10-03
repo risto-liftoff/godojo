@@ -56,7 +56,13 @@ func GetUbuntu(bc *c.CmdPkg, t string) error {
 	case bc.Label == "setupdojo":
 		err := getUbuntuSetupDojo(bc, t)
 		if err != nil {
-			// Return error from getUbuntuCreateSettings()
+			// Return error from getUbuntuSetupDojo()
+			return err
+		}
+	case bc.Label == "setupdojodb":
+		err := getUbuntuSetupDojo(bc, t)
+		if err != nil {
+			// Return error from getUbuntuSetupDojo()
 			return err
 		}
 	default:
@@ -747,6 +753,132 @@ var u2204CreateSettings = []c.SingleCmd{
 var u2104CreateSettings = append([]c.SingleCmd{}, u2204CreateSettings...)
 
 ///////////////////////////////////////////////////////////////////////////////
+//                           Setup DefectDojo DB commands                       //
+///////////////////////////////////////////////////////////////////////////////
+
+func setUbuntuSetupDojoDB() {
+	// Connect setup DefectDojo DB commands to the supported Ubuntu releases
+	for k := range ubuntuReleases {
+		switch {
+		case ubuntuReleases[k].Release == "22.04":
+			ubuntuReleases[k].PkgCmds = u2204SetupDojoDB
+		case ubuntuReleases[k].Release == "21.04":
+			ubuntuReleases[k].PkgCmds = u2104SetupDojoDB
+		}
+	}
+}
+
+func getUbuntuSetupDojoDB(bc *c.CmdPkg, t string) error {
+	// Set setup DefectDojo DB as the commands to use
+	setUbuntuSetupDojoDB()
+
+	// Cycle through Ubuntu install targets
+	for k, v := range ubuntuReleases {
+		// Find a match for the target ID and the existing list of commands in ubuntuReleases
+		if strings.Compare(
+			strings.ToLower(v.ID),
+			strings.ToLower(t)) == 0 {
+			bc.Targets = append(bc.Targets, ubuntuReleases[k])
+			return nil
+		}
+	}
+
+	// No match for the target provided
+	return fmt.Errorf("Unable to find commands for target %s\n", t)
+}
+
+// Ubuntu 22.04 setup DefectDojo Commands
+var u2204SetupDojoDB = []c.SingleCmd{
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py makemigrations dojo",
+		Errmsg:     "Failed during makemgration dojo",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py migrate",
+		Errmsg:     "Failed during database migrate",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py createsuperuser" +
+			" --noinput --username=\"{conf.Install.Admin.User}\" --email=\"{conf.Install.Admin.Email}\"",
+		Errmsg:     "Failed while creating DefectDojo superuser",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && " +
+			"{conf.Install.Root}/django-DefectDojo/setup-superuser.expect {conf.Install.Admin.User} \"{conf.Install.Admin.Pass}\"",
+		Errmsg:     "Failed while setting the password for the DefectDojo superuser",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py loaddata " +
+			"system_settings initial_banner_conf product_type test_type development_environment benchmark_type " +
+			"benchmark_category benchmark_requirement language_type objects_review regulation initial_surveys role",
+		Errmsg:     "Failed while the loading data for a default install",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py migrate_textquestions",
+		Errmsg:     "Failed while the loading data for a default survey questions",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py buildwatson",
+		Errmsg:     "Failed while the running buildwatson",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py installwatson",
+		Errmsg:     "Failed while the running installwatson",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py initialize_test_types",
+		Errmsg:     "Failed to initialize test_types",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+	{
+		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py initialize_permissions",
+		Errmsg:     "Failed to initialize permissions",
+		Hard:       true,
+		Timeout:    0,
+		BeforeText: "",
+		AfterText:  "",
+	},
+}
+
+// No command changes needed for Ubuntu 21.04
+var u2104SetupDojoDB = append([]c.SingleCmd{}, u2204SetupDojoDB...)
+
+///////////////////////////////////////////////////////////////////////////////
 //                           Setup DefectDojo commands                       //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -783,91 +915,7 @@ func getUbuntuSetupDojo(bc *c.CmdPkg, t string) error {
 
 // Ubuntu 22.04 setup DefectDojo Commands
 var u2204SetupDojo = []c.SingleCmd{
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py makemigrations dojo",
-		Errmsg:     "Failed during makemgration dojo",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py migrate",
-		Errmsg:     "Failed during database migrate",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py createsuperuser" +
-			" --noinput --username=\"{conf.Install.Admin.User}\" --email=\"{conf.Install.Admin.Email}\"",
-		Errmsg:     "Failed while creating DefectDojo superuser",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && " +
-			"{conf.Install.Root}/django-DefectDojo/setup-superuser.expect {conf.Install.Admin.User} \"{conf.Install.Admin.Pass}\"",
-		Errmsg:     "Failed while setting the password for the DefectDojo superuser",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd: "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py loaddata " +
-			"system_settings initial_banner_conf product_type test_type development_environment benchmark_type " +
-			"benchmark_category benchmark_requirement language_type objects_review regulation initial_surveys role",
-		Errmsg:     "Failed while the loading data for a default install",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py migrate_textquestions",
-		Errmsg:     "Failed while the loading data for a default survey questions",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py buildwatson",
-		Errmsg:     "Failed while the running buildwatson",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py installwatson",
-		Errmsg:     "Failed while the running installwatson",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py initialize_test_types",
-		Errmsg:     "Failed to initialize test_types",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
-		Cmd:        "cd {conf.Install.Root}/django-DefectDojo && source ../bin/activate && python3 manage.py initialize_permissions",
-		Errmsg:     "Failed to initialize permissions",
-		Hard:       true,
-		Timeout:    0,
-		BeforeText: "",
-		AfterText:  "",
-	},
-	c.SingleCmd{
+	{
 		Cmd:        "cd {conf.Install.Root}/django-DefectDojo/components && yarn",
 		Errmsg:     "Failed while the running yarn",
 		Hard:       true,
@@ -875,7 +923,7 @@ var u2204SetupDojo = []c.SingleCmd{
 		BeforeText: "",
 		AfterText:  "",
 	},
-	c.SingleCmd{
+	{
 		Cmd:        "cd {conf.Install.Root}/django-DefectDojo/ && source ../bin/activate && python3 manage.py collectstatic --noinput",
 		Errmsg:     "Failed while the running collectstatic",
 		Hard:       true,
@@ -883,7 +931,7 @@ var u2204SetupDojo = []c.SingleCmd{
 		BeforeText: "",
 		AfterText:  "",
 	},
-	c.SingleCmd{
+	{
 		Cmd:        "chown -R {conf.Install.OS.User}.{conf.Install.OS.Group} {conf.Install.Root}",
 		Errmsg:     "Unable to change ownership of the DefectDojo directory",
 		Hard:       true,

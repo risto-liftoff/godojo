@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -255,6 +256,69 @@ func prepDBForDojo(d *DDConfig, t *targetOS) {
 		localDBStart(d, t)
 	}
 
+}
+
+// setupDefectDojoDB
+func setupDefectDojoDB(d *DDConfig, t *targetOS) {
+	if d.conf.Install.DB.DontModify {
+		d.traceMsg("Install.DB.DontModify is set to true, skipping setting up database for DefectDojo")
+		return
+	}
+
+	d.sectionMsg("Setting up database for DefectDojo")
+
+	// Do some preliminary work to the install root
+	prepAndPatch(d, t.id)
+
+	// Create new setup DefectDojo command package
+	cSetupDojoDB := c.NewPkg("setupdojodb")
+
+	// Get commands for the right distro
+	switch {
+	case t.distro == "ubuntu":
+		d.traceMsg("Searching for commands to setup DefectDojo database on Ubuntu")
+		err := distros.GetUbuntu(cSetupDojoDB, t.id)
+		if err != nil {
+			fmt.Printf("Error searching for commands to setup DefectDojo database on target OS %s\n", t.id)
+			os.Exit(1)
+		}
+	case t.distro == "rhel":
+		d.traceMsg("Searching for commands to setup DefectDojo database on RHEL")
+		err := distros.GetRHEL(cSetupDojoDB, t.id)
+		if err != nil {
+			fmt.Printf("Error searching for commands to setup DefectDojo database on target OS %s\n", t.id)
+			os.Exit(1)
+		}
+	default:
+		d.traceMsg(fmt.Sprintf("Distro identified (%s) is not supported", t.id))
+		fmt.Printf("Distro identified by godojo (%s) is not supported, exiting...\n", t.id)
+		os.Exit(1)
+	}
+
+	// Start the spinner
+	d.spin = spinner.New(spinner.CharSets[34], 100*time.Millisecond)
+	d.spin.Prefix = "Setting up Django for DefectDojo..."
+	d.spin.Start()
+	// Run the setup DefectDojo database commands for the target OS
+	d.traceMsg(fmt.Sprintf("Getting commands to setup DefectDojo database on %s", t.id))
+	tCmds, err := distros.CmdsForTarget(cSetupDojoDB, t.id)
+	if err != nil {
+		fmt.Printf("Error getting commands to setup DefectDojo database on target OS %s\n", t.id)
+		os.Exit(1)
+	}
+
+	// Inject values from config into commands
+	d.injectConfigVals(tCmds)
+
+	for i := range tCmds {
+		sendCmd(d,
+			d.cmdLogger,
+			tCmds[i].Cmd,
+			tCmds[i].Errmsg,
+			tCmds[i].Hard)
+	}
+	d.spin.Stop()
+	d.statusMsg("Setting up Django database complete")
 }
 
 // dbPrep
@@ -964,4 +1028,82 @@ func setDefaultPgSQL(d *DDConfig, creds map[string]string) {
 	}
 
 	d.traceMsg("No error return from setDefaultPgSQL")
+}
+
+func prepAndPatch(d *DDConfig, id string) {
+	// Setup expect script needed to set initial admin password
+	d.traceMsg(fmt.Sprintf("Injecting file %s at %s", "setup-superuser.expect", d.conf.Install.Root+"/django-DefectDojo"))
+	// Inject expect script to change admin password
+	terr := injectFile(d, suExpect, d.conf.Install.Root+"/django-DefectDojo", 0755)
+	if terr != nil {
+		fmt.Println("Unable to add expect script to installation")
+		fmt.Printf("Error was: %+v\n", terr)
+		os.Exit(1)
+	}
+
+	err := patchOMatic(d)
+	if err != nil {
+		d.traceMsg(fmt.Sprintf("patchOMatic failed with non-blocking error: %+v", err))
+		d.traceMsg("A failure of patchOMatic may lead to a corrupt install - be warned")
+	}
+
+	// Ensure there's a value for email as the add admin user call will fail without one
+	if len(d.conf.Install.Admin.Email) > 0 {
+		// If user configures an incorrect email, this will still fail but that's on them, not godojo
+		d.conf.Install.Admin.Email = "default.user@defectdojo.org"
+	}
+
+	// Make sure special characters don't break adding admin user
+	d.conf.Install.Admin.Pass = escSpCar(d.conf.Install.Admin.Pass)
+}
+
+// injectFile
+func injectFile(d *DDConfig, n string, p string, mask fs.FileMode) error {
+	// Extract embedded file
+	f, err := embd.ReadFile(n)
+	if err != nil {
+		// Embeded file was not found.
+		fmt.Println("Unable to extract embedded patch file")
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Strip off embedded directory from filename
+	name := strings.Replace(n, "embd/", "", 1)
+
+	// Write the file to disk
+	err = os.WriteFile(p+"/"+name, f, mask)
+	if err != nil {
+		// File can't be written
+		return err
+	}
+
+	d.traceMsg(fmt.Sprintf("Wrote file %s at %s", name, p))
+
+	return nil
+}
+
+func patchOMatic(d *DDConfig) error {
+	// If a source or commit install, do no patching
+	if d.conf.Install.SourceInstall {
+		return nil
+	}
+
+	// NOTE: Only 2.0.0 or greater is supported.  This is left as an example if patching is required in future
+	// Check the install version for any needed patches
+	//switch d.conf.Install.Version {
+	//case "1.15.1":
+	//	// Replace dojo/tools/factory to work around bug in Python 3.8 - https://bugs.python.org/issue44061
+	//	_ = injectFile(d, factory2, d.conf.Install.Root+"/django-DefectDojo/dojo/tools", 0755)
+	//	_ = tryCmd(d,
+	//		"mv -f "+d.conf.Install.Root+"/django-DefectDojo/dojo/tools/factory.py "+
+	//			d.conf.Install.Root+"/django-DefectDojo/dojo/tools/factory_py.buggy",
+	//		"Error renaming factory.py to factory_py.buggy", false)
+	//	_ = tryCmd(d,
+	//		"mv -f "+d.conf.Install.Root+"/django-DefectDojo/dojo/tools/factory_2.0.3 "+
+	//			d.conf.Install.Root+"/django-DefectDojo/dojo/tools/factory.py",
+	//		"Error replacing factory.py with updated one from version 2.0.3", false)
+	//}
+
+	return nil
 }
